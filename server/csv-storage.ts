@@ -201,7 +201,7 @@ class VercelKVStorage {
   private async getTransactions(): Promise<Transaction[]> {
     try {
       const { kv } = require('@vercel/kv');
-      const data = await kv.get<Transaction[]>("transactions_data");
+      const data = await kv.get("transactions_data") as Transaction[] | null;
       return data || [];
     } catch (error) {
       console.error("Failed to get transactions from KV:", error);
@@ -308,7 +308,7 @@ class VercelKVStorage {
   async getCSVContent(): Promise<string> {
     try {
       const { kv } = require('@vercel/kv');
-      const csvContent = await kv.get<string>("transactions_csv");
+      const csvContent = await kv.get("transactions_csv") as string | null;
       return csvContent || "Date,Description,Withdrawals,Deposits,Balance\n";
     } catch (error) {
       console.error("Failed to get CSV content:", error);

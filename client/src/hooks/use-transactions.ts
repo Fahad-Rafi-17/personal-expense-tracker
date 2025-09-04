@@ -6,10 +6,10 @@ export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadTransactions = useCallback(() => {
+  const loadTransactions = useCallback(async () => {
     setLoading(true);
     try {
-      const data = transactionStorage.getAllTransactions();
+      const data = await transactionStorage.getAllTransactions();
       setTransactions(data);
     } catch (error) {
       console.error("Failed to load transactions:", error);
@@ -22,9 +22,9 @@ export function useTransactions() {
     loadTransactions();
   }, [loadTransactions]);
 
-  const addTransaction = useCallback((data: InsertTransaction) => {
+  const addTransaction = useCallback(async (data: InsertTransaction) => {
     try {
-      const newTransaction = transactionStorage.addTransaction(data);
+      const newTransaction = await transactionStorage.addTransaction(data);
       setTransactions(prev => [newTransaction, ...prev]);
       return newTransaction;
     } catch (error) {
@@ -33,9 +33,9 @@ export function useTransactions() {
     }
   }, []);
 
-  const updateTransaction = useCallback((id: string, data: Partial<InsertTransaction>) => {
+  const updateTransaction = useCallback(async (id: string, data: Partial<InsertTransaction>) => {
     try {
-      const updated = transactionStorage.updateTransaction(id, data);
+      const updated = await transactionStorage.updateTransaction(id, data);
       if (updated) {
         setTransactions(prev => 
           prev.map(t => t.id === id ? updated : t)
@@ -48,9 +48,9 @@ export function useTransactions() {
     }
   }, []);
 
-  const deleteTransaction = useCallback((id: string) => {
+  const deleteTransaction = useCallback(async (id: string) => {
     try {
-      const success = transactionStorage.deleteTransaction(id);
+      const success = await transactionStorage.deleteTransaction(id);
       if (success) {
         setTransactions(prev => prev.filter(t => t.id !== id));
       }

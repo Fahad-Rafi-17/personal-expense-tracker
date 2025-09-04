@@ -112,9 +112,6 @@ export default function Transactions() {
 
   const allCategories = [...CATEGORIES.INCOME, ...CATEGORIES.EXPENSE];
 
-  console.log('Transactions loaded:', transactions.length);
-  console.log('Filtered transactions:', filteredTransactions.length);
-
   return (
     <div className="space-y-6" data-testid="transactions">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
