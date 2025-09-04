@@ -1,9 +1,10 @@
-import { drizzle } from "drizzle-orm/vercel-postgres";
-import { sql } from "@vercel/postgres";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import * as schema from "./schema";
 
-// For Vercel Postgres - optimized for serverless
-export const vercelDb = drizzle(sql, { schema });
+// For Vercel + Neon - optimized for serverless
+const sql = neon(process.env.DATABASE_URL!);
+export const neonDb = drizzle(sql, { schema });
 
 // Fallback for other PostgreSQL providers
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
@@ -20,7 +21,8 @@ const client = postgres(connectionString, {
 
 export const postgresDb = drizzlePostgres(client, { schema });
 
-// Auto-detect which database to use
-export const db = process.env.VERCEL_ENV ? vercelDb : postgresDb;
+// Auto-detect which database to use - prefer Neon for Vercel
+export const db = process.env.DATABASE_URL?.includes('neon.tech') ? neonDb : 
+                 process.env.VERCEL_ENV ? neonDb : postgresDb;
 
 export * from "./schema";
