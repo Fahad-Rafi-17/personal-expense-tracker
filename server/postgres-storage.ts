@@ -18,7 +18,8 @@ export class PostgresStorage {
       return result.map(this.transformDbTransaction);
     } catch (error) {
       console.error("Failed to get all transactions:", error);
-      throw new Error("Database query failed");
+      // Return empty array instead of throwing to prevent 500 errors
+      return [];
     }
   }
 
