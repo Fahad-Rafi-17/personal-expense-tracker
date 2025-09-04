@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Transaction, type InsertTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { csvStorage } from "./csv-storage";
+import { hybridStorage } from "./hybrid-storage";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -24,7 +24,7 @@ export interface IStorage {
   getCurrentBalance(): Promise<number>;
 }
 
-export class CSVBasedStorage implements IStorage {
+export class HybridDatabaseStorage implements IStorage {
   private users: Map<string, User>;
 
   constructor() {
@@ -52,43 +52,43 @@ export class CSVBasedStorage implements IStorage {
     return user;
   }
 
-  // Transaction methods - delegate to CSV storage
+  // Transaction methods - delegate to hybrid storage
   async getAllTransactions(): Promise<Transaction[]> {
-    return csvStorage.getAllTransactions();
+    return hybridStorage.getAllTransactions();
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
-    return csvStorage.addTransaction(data);
+    return hybridStorage.addTransaction(data);
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {
-    return csvStorage.updateTransaction(id, data);
+    return hybridStorage.updateTransaction(id, data);
   }
 
   async deleteTransaction(id: string): Promise<boolean> {
-    return csvStorage.deleteTransaction(id);
+    return hybridStorage.deleteTransaction(id);
   }
 
   async getTransactionsByType(type: "income" | "expense"): Promise<Transaction[]> {
-    return csvStorage.getTransactionsByType(type);
+    return hybridStorage.getTransactionsByType(type);
   }
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-    return csvStorage.getTransactionsByDateRange(startDate, endDate);
+    return hybridStorage.getTransactionsByDateRange(startDate, endDate);
   }
 
   // CSV methods
   async getCSVContent(): Promise<string> {
-    return csvStorage.getCSVContent();
+    return hybridStorage.getCSVContent();
   }
 
   async downloadCSV(): Promise<Buffer> {
-    return csvStorage.downloadCSV();
+    return hybridStorage.downloadCSV();
   }
 
   async getCurrentBalance(): Promise<number> {
-    return csvStorage.getCurrentBalance();
+    return hybridStorage.getCurrentBalance();
   }
 }
 
-export const storage = new CSVBasedStorage();
+export const storage = new HybridDatabaseStorage();

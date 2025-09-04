@@ -1,17 +1,28 @@
 import type { Express } from "express";
 import { storage } from "./storage";
+import { hybridStorage } from "./hybrid-storage";
 import { insertTransactionSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<void> {
   // Health check endpoint
-  app.get("/api/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
-      hasKvUrl: !!process.env.KV_URL,
-      kvUrlPrefix: process.env.KV_URL ? process.env.KV_URL.substring(0, 20) + "..." : "none"
-    });
+  app.get("/api/health", async (req, res) => {
+    try {
+      const storageType = hybridStorage.getStorageType();
+      res.json({ 
+        status: "ok", 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        hasDatabase: !!process.env.DATABASE_URL,
+        databasePrefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + "..." : "none",
+        storageType: storageType,
+        isVercel: !!process.env.VERCEL_ENV
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   });
 
   // Transaction routes

@@ -10,7 +10,10 @@
     "vercel-build": "vite build",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
+    "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
+    "db:migrate": "tsx migrate.ts",
+    "db:setup": "./setup-database.sh",
     "deploy": "vercel --prod"
   },
   "dependencies": {
@@ -47,6 +50,7 @@
     "@radix-ui/react-tooltip": "^1.2.0",
     "@tanstack/react-query": "^5.60.5",
     "@vercel/kv": "^3.0.0",
+    "@vercel/postgres": "^0.10.0",
     "chart.js": "^4.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

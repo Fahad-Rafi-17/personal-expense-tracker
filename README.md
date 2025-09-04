@@ -98,24 +98,69 @@ Deploy to Vercel and access your app from anywhere at your Vercel URL.
 - **Downloadable**: One-click CSV download
 - **Real-time Updates**: CSV updated automatically with each transaction
 
-## Environment Variables
+## Quick Setup
 
-For production deployment with Vercel KV:
-
-```env
-KV_URL=your_kv_url
-KV_REST_API_URL=your_kv_rest_api_url
-KV_REST_API_TOKEN=your_kv_rest_api_token
-KV_REST_API_READ_ONLY_TOKEN=your_kv_rest_api_read_only_token
+### 1. Clone and Install
+```bash
+git clone <your-repo>
+cd personal-expense-tracker
+npm install
 ```
 
-These are automatically set when you create a Vercel KV database.
+### 2. Database Setup
+```bash
+# Run the setup script to see your options
+npm run db:setup
+
+# Choose one of these options:
+# Option 1: Vercel Postgres (Recommended for production)
+# Option 2: Neon Database (Free alternative) 
+# Option 3: Local PostgreSQL (For development)
+```
+
+### 3. Configure Database
+```bash
+# After setting up your database, update the DATABASE_URL
+# Then push the schema to your database
+npm run db:push
+```
+
+### 4. Development
+```bash
+npm run dev
+```
+
+### 5. Deploy to Vercel
+```bash
+# Make sure you've set up Vercel Postgres in your dashboard
+npm run deploy
+```
+
+## Environment Variables
+
+### For Production (Vercel)
+
+Set up **Vercel Postgres** in your Vercel dashboard:
+1. Go to your project → Storage
+2. Create Database → Select "Postgres"
+3. DATABASE_URL is automatically configured
+
+```env
+DATABASE_URL=your_postgres_connection_string  # Automatically set by Vercel
+```
+
+### For Development
+
+```env
+DATABASE_URL=postgresql://localhost:5432/cashflow
+```
 
 ## Tech Stack
 
 - **Frontend**: React, TypeScript, Tailwind CSS
 - **Backend**: Express.js, Node.js
-- **Storage**: Vercel KV (production) / Memory (development)
+- **Database**: PostgreSQL (Vercel Postgres / Neon / Local)
+- **ORM**: Drizzle ORM
 - **Deployment**: Vercel
 - **Charts**: Chart.js
 - **Styling**: Tailwind CSS + shadcn/ui
@@ -125,8 +170,10 @@ These are automatically set when you create a Vercel KV database.
 ```
 ├── client/           # React frontend
 ├── server/           # Express backend
+│   ├── db/          # Database schema and config
+│   └── postgres-storage.ts  # Database operations
 ├── shared/           # Shared types and schemas
-├── csv-storage.ts    # CSV storage implementation
+├── migrations/       # Database migrations
 └── vercel.json       # Vercel deployment config
 ```
 
