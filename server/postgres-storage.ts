@@ -29,6 +29,7 @@ export class PostgresStorage {
         id: randomUUID(),
         ...data,
         amount: data.amount.toString(), // Convert to string for database
+        date: data.date || new Date().toISOString().split('T')[0], // Use provided date or current date
         createdAt: new Date(),
       };
 
