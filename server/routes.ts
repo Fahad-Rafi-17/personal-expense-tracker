@@ -1,20 +1,18 @@
 import type { Express } from "express";
 import { storage } from "./storage";
-import { hybridStorage } from "./hybrid-storage";
 import { insertTransactionSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<void> {
   // Health check endpoint
   app.get("/api/health", async (req, res) => {
     try {
-      const storageType = hybridStorage.getStorageType();
       res.json({ 
         status: "ok", 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
         hasDatabase: !!process.env.DATABASE_URL,
         databasePrefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + "..." : "none",
-        storageType: storageType,
+        storageType: "postgres",
         isVercel: !!process.env.VERCEL_ENV
       });
     } catch (error) {

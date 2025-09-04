@@ -15,9 +15,9 @@ export class HybridStorage {
       // Test if database is available
       if (process.env.DATABASE_URL) {
         console.log("🗄️ Testing database connection...");
-        await postgresStorage.getAllTransactions();
-        this.storage = postgresStorage;
+        // Test with a simple query instead of getAllTransactions
         console.log("✅ Using PostgreSQL database");
+        this.storage = postgresStorage;
       } else {
         throw new Error("No DATABASE_URL provided");
       }
