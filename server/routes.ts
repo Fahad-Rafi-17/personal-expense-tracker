@@ -1,31 +1,54 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTransactionSchema } from "@shared/schema";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      hasKvUrl: !!process.env.KV_URL,
+      kvUrlPrefix: process.env.KV_URL ? process.env.KV_URL.substring(0, 20) + "..." : "none"
+    });
+  });
+
   // Transaction routes
   
   // Get all transactions
   app.get("/api/transactions", async (req, res) => {
     try {
+      console.log("Getting all transactions...");
       const transactions = await storage.getAllTransactions();
+      console.log("Retrieved transactions count:", transactions.length);
       res.json(transactions);
     } catch (error) {
       console.error("Failed to get transactions:", error);
-      res.status(500).json({ error: "Failed to get transactions" });
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      res.status(500).json({ error: "Failed to get transactions", details: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
   // Add transaction
   app.post("/api/transactions", async (req, res) => {
     try {
+      console.log("Received transaction data:", req.body);
       const validatedData = insertTransactionSchema.parse(req.body);
+      console.log("Validated transaction data:", validatedData);
       const transaction = await storage.addTransaction(validatedData);
+      console.log("Added transaction:", transaction);
       res.status(201).json(transaction);
     } catch (error) {
       console.error("Failed to add transaction:", error);
-      res.status(400).json({ error: "Failed to add transaction" });
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+      }
+      res.status(500).json({ error: "Failed to add transaction", details: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
@@ -116,7 +139,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to get balance" });
     }
   });
-
-  const httpServer = createServer(app);
-  return httpServer;
 }
