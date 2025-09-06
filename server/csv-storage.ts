@@ -133,85 +133,121 @@ class LocalCSVStorage {
 
 // Try to use Vercel KV, fallback to local storage
 let kvAvailable = false;
+let kvModule: any = null;
 try {
-  const { kv } = require('@vercel/kv');
-  // Check if KV is actually configured
-  if (process.env.KV_URL && process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    kvAvailable = true;
-    console.log("Vercel KV detected and configured");
-  } else {
-    console.log("Vercel KV package found but not configured (missing environment variables)");
-  }
+  kvModule = require('@vercel/kv');
+  kvAvailable = !!kvModule && !!process.env.KV_URL;
+  console.log("KV availability check:", { kvAvailable, hasKvUrl: !!process.env.KV_URL });
 } catch (error) {
   console.log("Vercel KV not available, using local storage for development");
 }
 
 export class CSVStorage {
   private storage: any;
+  private fallbackStorage: LocalCSVStorage;
 
   constructor() {
-    // For now, always use local storage until KV is properly configured
-    // TODO: Set up Vercel KV properly with environment variables
-    console.log("Using local memory storage");
-    this.storage = new LocalCSVStorage();
+    // Always initialize fallback storage
+    this.fallbackStorage = new LocalCSVStorage();
     
-    // Uncomment this when KV is properly configured:
-    // if (kvAvailable && process.env.KV_URL) {
-    //   console.log("Using Vercel KV storage");
-    //   this.storage = new VercelKVStorage();
-    // } else {
-    //   console.log("Using local memory storage");
-    //   this.storage = new LocalCSVStorage();
-    // }
+    // Temporarily force local storage until KV is properly configured
+    console.log("Using local memory storage (forced)");
+    this.storage = this.fallbackStorage;
+    
+    // Original KV logic (commented out for now):
+    /*
+    if (kvAvailable && process.env.KV_URL && kvModule) {
+      // Use Vercel KV storage in production
+      console.log("Using Vercel KV storage");
+      try {
+        this.storage = new VercelKVStorage(kvModule);
+      } catch (error) {
+        console.error("Failed to initialize Vercel KV, falling back to local storage:", error);
+        this.storage = this.fallbackStorage;
+      }
+    } else {
+      // Use local storage for development
+      console.log("Using local memory storage for development");
+      this.storage = this.fallbackStorage;
+    }
+    */
+  }
+
+  private async executeWithFallback<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      console.error("KV operation failed, using fallback storage:", error);
+      // Switch to fallback if KV fails
+      if (this.storage !== this.fallbackStorage) {
+        this.storage = this.fallbackStorage;
+      }
+      return await operation();
+    }
   }
 
   async getAllTransactions(): Promise<Transaction[]> {
-    return this.storage.getAllTransactions();
+    return this.executeWithFallback(() => this.storage.getAllTransactions());
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
-    return this.storage.addTransaction(data);
+    return this.executeWithFallback(() => this.storage.addTransaction(data));
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {
-    return this.storage.updateTransaction(id, data);
+    return this.executeWithFallback(() => this.storage.updateTransaction(id, data));
   }
 
   async deleteTransaction(id: string): Promise<boolean> {
-    return this.storage.deleteTransaction(id);
+    return this.executeWithFallback(() => this.storage.deleteTransaction(id));
   }
 
   async getTransactionsByType(type: "income" | "expense"): Promise<Transaction[]> {
-    return this.storage.getTransactionsByType(type);
+    return this.executeWithFallback(() => this.storage.getTransactionsByType(type));
   }
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-    return this.storage.getTransactionsByDateRange(startDate, endDate);
+    return this.executeWithFallback(() => this.storage.getTransactionsByDateRange(startDate, endDate));
   }
 
   async getCSVContent(): Promise<string> {
-    return this.storage.getCSVContent();
+    return this.executeWithFallback(() => this.storage.getCSVContent());
   }
 
   async downloadCSV(): Promise<Buffer> {
-    return this.storage.downloadCSV();
+    return this.executeWithFallback(() => this.storage.downloadCSV());
   }
 
   async getCurrentBalance(): Promise<number> {
-    return this.storage.getCurrentBalance();
+    return this.executeWithFallback(() => this.storage.getCurrentBalance());
   }
 
   async getBankStatementEntries(): Promise<BankStatementEntry[]> {
-    return this.storage.getBankStatementEntries();
+    return this.executeWithFallback(() => this.storage.getBankStatementEntries());
   }
 }
 
 // Original Vercel KV implementation
 class VercelKVStorage {
+  private kv: any;
+
+  constructor(kvModule?: any) {
+    if (kvModule) {
+      this.kv = kvModule.kv;
+    } else {
+      try {
+        const { kv } = require('@vercel/kv');
+        this.kv = kv;
+      } catch (error) {
+        console.error("Failed to initialize KV:", error);
+        throw new Error("KV module not available");
+      }
+    }
+  }
+
   private async getTransactions(): Promise<Transaction[]> {
     try {
-      const { kv } = require('@vercel/kv');
-      const data = await kv.get("transactions_data") as Transaction[] | null;
+      const data = await this.kv.get("transactions_data") as Transaction[] | null;
       return data || [];
     } catch (error) {
       console.error("Failed to get transactions from KV:", error);
@@ -221,8 +257,7 @@ class VercelKVStorage {
 
   private async saveTransactions(transactions: Transaction[]): Promise<void> {
     try {
-      const { kv } = require('@vercel/kv');
-      await kv.set("transactions_data", transactions);
+      await this.kv.set("transactions_data", transactions);
       await this.generateCSV(transactions);
     } catch (error) {
       console.error("Failed to save transactions to KV:", error);
@@ -256,8 +291,7 @@ class VercelKVStorage {
     const csvContent = csvHeaders + csvRows;
     
     try {
-      const { kv } = require('@vercel/kv');
-      await kv.set("transactions_csv", csvContent);
+      await this.kv.set("transactions_csv", csvContent);
     } catch (error) {
       console.error("Failed to save CSV to KV:", error);
     }
@@ -317,8 +351,7 @@ class VercelKVStorage {
 
   async getCSVContent(): Promise<string> {
     try {
-      const { kv } = require('@vercel/kv');
-      const csvContent = await kv.get("transactions_csv") as string | null;
+      const csvContent = await this.kv.get("transactions_csv") as string | null;
       return csvContent || "Date,Description,Withdrawals,Deposits,Balance\n";
     } catch (error) {
       console.error("Failed to get CSV content:", error);

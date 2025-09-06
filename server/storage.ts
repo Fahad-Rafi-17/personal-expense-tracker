@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Transaction, type InsertTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { csvStorage } from "./csv-storage";
+import { postgresStorage } from "./postgres-storage";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -24,7 +24,7 @@ export interface IStorage {
   getCurrentBalance(): Promise<number>;
 }
 
-export class CSVBasedStorage implements IStorage {
+export class DatabaseStorage implements IStorage {
   private users: Map<string, User>;
 
   constructor() {
@@ -52,43 +52,43 @@ export class CSVBasedStorage implements IStorage {
     return user;
   }
 
-  // Transaction methods - delegate to CSV storage
+  // Transaction methods - delegate to Postgres storage
   async getAllTransactions(): Promise<Transaction[]> {
-    return csvStorage.getAllTransactions();
+    return postgresStorage.getAllTransactions();
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
-    return csvStorage.addTransaction(data);
+    return postgresStorage.addTransaction(data);
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {
-    return csvStorage.updateTransaction(id, data);
+    return postgresStorage.updateTransaction(id, data);
   }
 
   async deleteTransaction(id: string): Promise<boolean> {
-    return csvStorage.deleteTransaction(id);
+    return postgresStorage.deleteTransaction(id);
   }
 
   async getTransactionsByType(type: "income" | "expense"): Promise<Transaction[]> {
-    return csvStorage.getTransactionsByType(type);
+    return postgresStorage.getTransactionsByType(type);
   }
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-    return csvStorage.getTransactionsByDateRange(startDate, endDate);
+    return postgresStorage.getTransactionsByDateRange(startDate, endDate);
   }
 
   // CSV methods
   async getCSVContent(): Promise<string> {
-    return csvStorage.getCSVContent();
+    return postgresStorage.getCSVContent();
   }
 
   async downloadCSV(): Promise<Buffer> {
-    return csvStorage.downloadCSV();
+    return postgresStorage.downloadCSV();
   }
 
   async getCurrentBalance(): Promise<number> {
-    return csvStorage.getCurrentBalance();
+    return postgresStorage.getCurrentBalance();
   }
 }
 
-export const storage = new CSVBasedStorage();
+export const storage = new DatabaseStorage();
