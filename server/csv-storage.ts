@@ -135,7 +135,13 @@ class LocalCSVStorage {
 let kvAvailable = false;
 try {
   const { kv } = require('@vercel/kv');
-  kvAvailable = true;
+  // Check if KV is actually configured
+  if (process.env.KV_URL && process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    kvAvailable = true;
+    console.log("Vercel KV detected and configured");
+  } else {
+    console.log("Vercel KV package found but not configured (missing environment variables)");
+  }
 } catch (error) {
   console.log("Vercel KV not available, using local storage for development");
 }
@@ -144,15 +150,19 @@ export class CSVStorage {
   private storage: any;
 
   constructor() {
-    if (kvAvailable && process.env.KV_URL) {
-      // Use Vercel KV storage in production
-      console.log("Using Vercel KV storage");
-      this.storage = new VercelKVStorage();
-    } else {
-      // Use local storage for development
-      console.log("Using local memory storage for development");
-      this.storage = new LocalCSVStorage();
-    }
+    // For now, always use local storage until KV is properly configured
+    // TODO: Set up Vercel KV properly with environment variables
+    console.log("Using local memory storage");
+    this.storage = new LocalCSVStorage();
+    
+    // Uncomment this when KV is properly configured:
+    // if (kvAvailable && process.env.KV_URL) {
+    //   console.log("Using Vercel KV storage");
+    //   this.storage = new VercelKVStorage();
+    // } else {
+    //   console.log("Using local memory storage");
+    //   this.storage = new LocalCSVStorage();
+    // }
   }
 
   async getAllTransactions(): Promise<Transaction[]> {
