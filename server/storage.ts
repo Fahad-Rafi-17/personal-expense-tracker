@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Transaction, type InsertTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { postgresStorage } from "./postgres-storage";
+import { SupabaseStorage } from "./supabase-storage";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -26,18 +26,20 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   private users: Map<string, User>;
+  private supabaseStorage: SupabaseStorage;
 
   constructor() {
     this.users = new Map();
+    this.supabaseStorage = new SupabaseStorage();
     
-    // Validate database configuration
-    if (!process.env.DATABASE_URL) {
-      console.error("❌ DATABASE_URL environment variable is not set!");
-      console.error("Please configure your Neon PostgreSQL database URL in Vercel environment variables.");
-      throw new Error("Database configuration missing: DATABASE_URL is required");
+    // Validate Supabase configuration
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      console.error("❌ Supabase environment variables are not set!");
+      console.error("Please configure SUPABASE_URL and SUPABASE_ANON_KEY in Vercel environment variables.");
+      throw new Error("Database configuration missing: Supabase credentials are required");
     }
     
-    console.log("✅ Database storage initialized with PostgreSQL");
+    console.log("✅ Database storage initialized with Supabase");
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -61,42 +63,42 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Transaction methods - use database only
+  // Transaction methods - use Supabase storage
   async getAllTransactions(): Promise<Transaction[]> {
-    return await postgresStorage.getAllTransactions();
+    return await this.supabaseStorage.getAllTransactions();
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
-    return await postgresStorage.addTransaction(data);
+    return await this.supabaseStorage.addTransaction(data);
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {
-    return await postgresStorage.updateTransaction(id, data);
+    return await this.supabaseStorage.updateTransaction(id, data);
   }
 
   async deleteTransaction(id: string): Promise<boolean> {
-    return await postgresStorage.deleteTransaction(id);
+    return await this.supabaseStorage.deleteTransaction(id);
   }
 
   async getTransactionsByType(type: "income" | "expense"): Promise<Transaction[]> {
-    return await postgresStorage.getTransactionsByType(type);
+    return await this.supabaseStorage.getTransactionsByType(type);
   }
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-    return await postgresStorage.getTransactionsByDateRange(startDate, endDate);
+    return await this.supabaseStorage.getTransactionsByDateRange(startDate, endDate);
   }
 
   // CSV methods
   async getCSVContent(): Promise<string> {
-    return await postgresStorage.getCSVContent();
+    return await this.supabaseStorage.getCSVContent();
   }
 
   async downloadCSV(): Promise<Buffer> {
-    return await postgresStorage.downloadCSV();
+    return await this.supabaseStorage.downloadCSV();
   }
 
   async getCurrentBalance(): Promise<number> {
-    return await postgresStorage.getCurrentBalance();
+    return await this.supabaseStorage.getCurrentBalance();
   }
 }
 
