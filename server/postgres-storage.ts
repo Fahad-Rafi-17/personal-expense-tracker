@@ -1,4 +1,4 @@
-import { db, transactions } from "./db/vercel";
+import { db, initializeDatabase, transactions } from "./db/index";
 import type { Transaction, InsertTransaction } from "@shared/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -11,26 +11,42 @@ export interface BankStatementEntry {
   balance: string;     // Running balance
 }
 
+// Initialize database on module load
+let dbInitialized = false;
+async function ensureDbInitialized() {
+  if (!dbInitialized) {
+    try {
+      await initializeDatabase();
+      dbInitialized = true;
+      console.log("✅ Database initialized successfully");
+    } catch (error) {
+      console.error("❌ Database initialization failed:", error);
+      throw new Error("Database initialization failed. Please check your DATABASE_URL configuration.");
+    }
+  }
+}
+
 export class PostgresStorage {
   async getAllTransactions(): Promise<Transaction[]> {
+    await ensureDbInitialized();
     try {
       const result = await db.select().from(transactions).orderBy(desc(transactions.date));
       return result.map(this.transformDbTransaction);
     } catch (error) {
       console.error("Failed to get all transactions:", error);
-      // Return empty array instead of throwing to prevent 500 errors
-      return [];
+      throw new Error("Failed to retrieve transactions from database");
     }
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
+    await ensureDbInitialized();
     try {
       const transaction = {
         id: randomUUID(),
         ...data,
         amount: data.amount.toString(), // Convert to string for database
         date: data.date || new Date().toISOString().split('T')[0], // Use provided date or current date
-        createdAt: new Date(),
+        created_at: new Date().toISOString(),
       };
 
       const [result] = await db.insert(transactions).values(transaction).returning();
@@ -42,6 +58,7 @@ export class PostgresStorage {
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {
+    await ensureDbInitialized();
     try {
       const updateData: any = { ...data };
       if (updateData.amount !== undefined) {
@@ -62,6 +79,7 @@ export class PostgresStorage {
   }
 
   async deleteTransaction(id: string): Promise<boolean> {
+    await ensureDbInitialized();
     try {
       const [result] = await db
         .delete(transactions)
@@ -76,6 +94,7 @@ export class PostgresStorage {
   }
 
   async getTransactionsByType(type: "income" | "expense"): Promise<Transaction[]> {
+    await ensureDbInitialized();
     try {
       const result = await db
         .select()
@@ -91,6 +110,7 @@ export class PostgresStorage {
   }
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+    await ensureDbInitialized();
     try {
       const result = await db
         .select()
@@ -111,6 +131,7 @@ export class PostgresStorage {
   }
 
   async getCurrentBalance(): Promise<number> {
+    await ensureDbInitialized();
     try {
       const allTransactions = await this.getAllTransactions();
       return allTransactions.reduce((balance, transaction) => {
@@ -124,6 +145,7 @@ export class PostgresStorage {
   }
 
   async getCSVContent(): Promise<string> {
+    await ensureDbInitialized();
     try {
       const allTransactions = await this.getAllTransactions();
       const sortedTransactions = [...allTransactions].sort((a, b) => 
@@ -161,6 +183,7 @@ export class PostgresStorage {
   }
 
   async getBankStatementEntries(): Promise<BankStatementEntry[]> {
+    await ensureDbInitialized();
     try {
       const allTransactions = await this.getAllTransactions();
       const sortedTransactions = [...allTransactions].sort((a, b) => 
@@ -198,7 +221,7 @@ export class PostgresStorage {
       category: dbTransaction.category,
       description: dbTransaction.description || "",
       date: dbTransaction.date,
-      createdAt: dbTransaction.createdAt.toISOString(),
+      createdAt: dbTransaction.created_at || dbTransaction.createdAt,
     };
   }
 }

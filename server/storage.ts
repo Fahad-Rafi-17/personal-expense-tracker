@@ -29,6 +29,15 @@ export class DatabaseStorage implements IStorage {
 
   constructor() {
     this.users = new Map();
+    
+    // Validate database configuration
+    if (!process.env.DATABASE_URL) {
+      console.error("❌ DATABASE_URL environment variable is not set!");
+      console.error("Please configure your Neon PostgreSQL database URL in Vercel environment variables.");
+      throw new Error("Database configuration missing: DATABASE_URL is required");
+    }
+    
+    console.log("✅ Database storage initialized with PostgreSQL");
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -52,42 +61,42 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Transaction methods - delegate to Postgres storage
+  // Transaction methods - use database only
   async getAllTransactions(): Promise<Transaction[]> {
-    return postgresStorage.getAllTransactions();
+    return await postgresStorage.getAllTransactions();
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
-    return postgresStorage.addTransaction(data);
+    return await postgresStorage.addTransaction(data);
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {
-    return postgresStorage.updateTransaction(id, data);
+    return await postgresStorage.updateTransaction(id, data);
   }
 
   async deleteTransaction(id: string): Promise<boolean> {
-    return postgresStorage.deleteTransaction(id);
+    return await postgresStorage.deleteTransaction(id);
   }
 
   async getTransactionsByType(type: "income" | "expense"): Promise<Transaction[]> {
-    return postgresStorage.getTransactionsByType(type);
+    return await postgresStorage.getTransactionsByType(type);
   }
 
   async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-    return postgresStorage.getTransactionsByDateRange(startDate, endDate);
+    return await postgresStorage.getTransactionsByDateRange(startDate, endDate);
   }
 
   // CSV methods
   async getCSVContent(): Promise<string> {
-    return postgresStorage.getCSVContent();
+    return await postgresStorage.getCSVContent();
   }
 
   async downloadCSV(): Promise<Buffer> {
-    return postgresStorage.downloadCSV();
+    return await postgresStorage.downloadCSV();
   }
 
   async getCurrentBalance(): Promise<number> {
-    return postgresStorage.getCurrentBalance();
+    return await postgresStorage.getCurrentBalance();
   }
 }
 
