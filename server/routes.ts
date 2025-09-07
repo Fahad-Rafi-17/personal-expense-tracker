@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import path from "path";
 import { storage } from "./storage.js";
-import { insertTransactionSchema } from "@shared/schema";
+import { insertTransactionSchema } from "../shared/schema.js";
 
 export async function registerRoutes(app: Express): Promise<void> {
   // Debug page for API testing

@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Transaction, type InsertTransaction } from "@shared/schema";
+import { type User, type InsertUser, type Transaction, type InsertTransaction } from "../shared/schema.js";
 import { randomUUID } from "crypto";
 import { SupabaseStorage } from "./supabase-storage.js";
 

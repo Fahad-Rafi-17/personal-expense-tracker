@@ -1,4 +1,4 @@
-import { Transaction, InsertTransaction } from "@shared/schema";
+import { Transaction, InsertTransaction } from "../shared/schema.js";
 import { supabase, TRANSACTIONS_TABLE, DatabaseTransaction } from "./database.js";
 import { randomUUID } from "crypto";
 
