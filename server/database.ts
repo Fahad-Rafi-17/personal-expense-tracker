@@ -41,5 +41,32 @@ export interface DatabaseTransaction {
   created_at: string
 }
 
-// Table name
+export interface DatabaseLoan {
+  id: string
+  type: 'given' | 'taken'
+  amount: number
+  remaining_amount: number
+  person_name: string
+  person_contact: string
+  description: string
+  interest_rate: number
+  due_date: string | null
+  status: 'active' | 'completed' | 'defaulted'
+  created_at: string
+  completed_at: string | null
+}
+
+export interface DatabaseLoanPayment {
+  id: string
+  loan_id: string
+  amount: number
+  type: 'payment' | 'interest'
+  description: string
+  payment_date: string
+  created_at: string
+}
+
+// Table names
 export const TRANSACTIONS_TABLE = 'transactions'
+export const LOANS_TABLE = 'loans'
+export const LOAN_PAYMENTS_TABLE = 'loan_payments'

@@ -7,12 +7,13 @@ export function MobileNavigation() {
     { path: "/", icon: "fas fa-home", label: "Dashboard" },
     { path: "/analytics", icon: "fas fa-chart-bar", label: "Analytics" },
     { path: "/transactions", icon: "fas fa-list", label: "Transactions" },
+    { path: "/loans", icon: "fas fa-handshake", label: "Loans" },
     { path: "/bank-statement", icon: "fas fa-file-csv", label: "Statement" },
   ];
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50" data-testid="mobile-navigation">
-      <div className="grid grid-cols-4 h-16">
+      <div className="grid grid-cols-5 h-16">
         {navItems.map((item) => {
           const isActive = location === item.path;
           return (

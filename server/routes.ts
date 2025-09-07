@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import path from "path";
 import { storage } from "./storage.js";
-import { insertTransactionSchema } from "../shared/schema.js";
+import { loanStorage } from "./loan-storage.js";
+import { insertTransactionSchema, insertLoanSchema, insertLoanPaymentSchema } from "../shared/schema.js";
 
 export async function registerRoutes(app: Express): Promise<void> {
   // Debug page for API testing
@@ -268,6 +269,192 @@ export async function registerRoutes(app: Express): Promise<void> {
     } catch (error) {
       console.error("Failed to get balance:", error);
       res.status(500).json({ error: "Failed to get balance" });
+    }
+  });
+
+  // ============== LOAN ROUTES ==============
+
+  // Get all loans
+  app.get("/api/loans", async (req, res) => {
+    try {
+      console.log("Getting all loans...");
+      const loans = await loanStorage.getAllLoans();
+      console.log("Retrieved loans count:", loans.length);
+      res.json(loans);
+    } catch (error) {
+      console.error("Failed to get loans:", error);
+      res.status(500).json({ 
+        error: "Failed to get loans", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  });
+
+  // Add loan
+  app.post("/api/loans", async (req, res) => {
+    try {
+      console.log("=== ADD LOAN DEBUG ===");
+      console.log("Request body:", req.body);
+      
+      const validatedData = insertLoanSchema.parse(req.body);
+      console.log("Validated data:", validatedData);
+      
+      const loan = await loanStorage.addLoan(validatedData);
+      console.log("Successfully added loan:", loan);
+      
+      res.status(201).json(loan);
+    } catch (error) {
+      console.error("=== ADD LOAN ERROR ===");
+      console.error("Error:", error);
+      
+      if (error instanceof Error && error.message.includes('validation')) {
+        return res.status(400).json({ 
+          error: "Invalid loan data", 
+          details: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to add loan", 
+        details: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Update loan
+  app.put("/api/loans/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertLoanSchema.partial().parse(req.body);
+      const loan = await loanStorage.updateLoan(id, validatedData);
+      
+      if (!loan) {
+        return res.status(404).json({ error: "Loan not found" });
+      }
+      
+      res.json(loan);
+    } catch (error) {
+      console.error("Failed to update loan:", error);
+      res.status(400).json({ error: "Failed to update loan" });
+    }
+  });
+
+  // Delete loan
+  app.delete("/api/loans/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await loanStorage.deleteLoan(id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Loan not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete loan:", error);
+      res.status(500).json({ error: "Failed to delete loan" });
+    }
+  });
+
+  // Get loans by type
+  app.get("/api/loans/type/:type", async (req, res) => {
+    try {
+      const { type } = req.params;
+      if (type !== "given" && type !== "taken") {
+        return res.status(400).json({ error: "Invalid loan type" });
+      }
+      
+      const loans = await loanStorage.getLoansByType(type);
+      res.json(loans);
+    } catch (error) {
+      console.error("Failed to get loans by type:", error);
+      res.status(500).json({ error: "Failed to get loans by type" });
+    }
+  });
+
+  // Get loans by status
+  app.get("/api/loans/status/:status", async (req, res) => {
+    try {
+      const { status } = req.params;
+      if (status !== "active" && status !== "completed" && status !== "defaulted") {
+        return res.status(400).json({ error: "Invalid loan status" });
+      }
+      
+      const loans = await loanStorage.getLoansByStatus(status);
+      res.json(loans);
+    } catch (error) {
+      console.error("Failed to get loans by status:", error);
+      res.status(500).json({ error: "Failed to get loans by status" });
+    }
+  });
+
+  // Get loan summary
+  app.get("/api/loans/summary", async (req, res) => {
+    try {
+      const summary = await loanStorage.getLoanSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Failed to get loan summary:", error);
+      res.status(500).json({ error: "Failed to get loan summary" });
+    }
+  });
+
+  // ============== LOAN PAYMENT ROUTES ==============
+
+  // Get payments for a specific loan
+  app.get("/api/loans/:loanId/payments", async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const payments = await loanStorage.getLoanPayments(loanId);
+      res.json(payments);
+    } catch (error) {
+      console.error("Failed to get loan payments:", error);
+      res.status(500).json({ error: "Failed to get loan payments" });
+    }
+  });
+
+  // Add payment to a loan
+  app.post("/api/loans/:loanId/payments", async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const paymentData = { ...req.body, loanId };
+      
+      const validatedData = insertLoanPaymentSchema.parse(paymentData);
+      const payment = await loanStorage.addLoanPayment(validatedData);
+      
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Failed to add loan payment:", error);
+      
+      if (error instanceof Error && error.message.includes('validation')) {
+        return res.status(400).json({ 
+          error: "Invalid payment data", 
+          details: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to add loan payment", 
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Delete loan payment
+  app.delete("/api/loans/payments/:paymentId", async (req, res) => {
+    try {
+      const { paymentId } = req.params;
+      const success = await loanStorage.deleteLoanPayment(paymentId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Payment not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete loan payment:", error);
+      res.status(500).json({ error: "Failed to delete loan payment" });
     }
   });
 }
