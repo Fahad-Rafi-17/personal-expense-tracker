@@ -1,11 +1,11 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
 import { nanoid } from "nanoid";
 
-const viteLogger = createLogger();
+// Import vite types conditionally to avoid loading vite in production
+let createViteServer: any;
+let createLogger: any;
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -18,10 +18,26 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
-export async function setupVite(app: Express, server: Server) {
-  // Dynamically import vite config only when needed in development
-  const viteConfigModule = await import("../vite.config.js");
-  const viteConfig = viteConfigModule.default;
+export async function setupVite(app: Express, server: any) {
+  // Skip vite setup completely in production or Vercel environments
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
+    console.log("Skipping Vite setup in production/Vercel environment");
+    return;
+  }
+
+  try {
+    // Only import vite modules when actually needed in development
+    if (!createViteServer || !createLogger) {
+      const vite = await import("vite");
+      createViteServer = vite.createServer;
+      createLogger = vite.createLogger;
+    }
+
+    // Dynamically import vite config only when needed in development
+    const viteConfigModule = await import("../vite.config.js");
+    const viteConfig = viteConfigModule.default;
+
+    const viteLogger = createLogger();
 
   const serverOptions = {
     middlewareMode: true,
@@ -34,7 +50,7 @@ export async function setupVite(app: Express, server: Server) {
     configFile: false,
     customLogger: {
       ...viteLogger,
-      error: (msg, options) => {
+      error: (msg: any, options: any) => {
         viteLogger.error(msg, options);
         process.exit(1);
       },
@@ -68,6 +84,10 @@ export async function setupVite(app: Express, server: Server) {
       next(e);
     }
   });
+  } catch (error) {
+    console.error("Failed to setup Vite:", error);
+    throw error;
+  }
 }
 
 export function serveStatic(app: Express) {
