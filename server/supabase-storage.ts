@@ -1,5 +1,5 @@
 import { Transaction, InsertTransaction } from "@shared/schema";
-import { supabase, TRANSACTIONS_TABLE, DatabaseTransaction } from "./database";
+import { supabase, TRANSACTIONS_TABLE, DatabaseTransaction } from "./database.js";
 import { randomUUID } from "crypto";
 
 export class SupabaseStorage {

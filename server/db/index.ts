@@ -1,6 +1,5 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import * as schema from "./schema";
 
 if (!process.env.DATABASE_URL) {
   console.error("❌ DATABASE_URL environment variable is not set!");
@@ -12,7 +11,7 @@ if (!process.env.DATABASE_URL) {
 const sql = neon(process.env.DATABASE_URL);
 
 // Create drizzle instance with Neon
-export const db = drizzle(sql, { schema });
+export const db = drizzle(sql);
 
 // Initialize database - create tables if they don't exist
 export async function initializeDatabase() {
@@ -48,5 +47,3 @@ export async function initializeDatabase() {
     throw error;
   }
 }
-
-export * from "./schema";

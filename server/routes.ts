@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import path from "path";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { insertTransactionSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<void> {

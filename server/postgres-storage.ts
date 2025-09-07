@@ -1,4 +1,4 @@
-import { db, initializeDatabase, transactions } from "./db/index";
+import { db, initializeDatabase, transactions } from "./db/index.js";
 import type { Transaction, InsertTransaction } from "@shared/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";

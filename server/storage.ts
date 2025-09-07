@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Transaction, type InsertTransaction } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { SupabaseStorage } from "./supabase-storage";
+import { SupabaseStorage } from "./supabase-storage.js";
 
 // modify the interface with any CRUD methods
 // you might need
