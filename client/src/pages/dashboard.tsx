@@ -7,11 +7,32 @@ import { useTransactions } from "@/contexts/transaction-context";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function Dashboard() {
-  const { totalBalance, monthlyIncome, monthlyExpenses, loading } = useTransactions();
+  const { totalBalance, monthlyIncome, monthlyExpenses, previousMonthIncome, previousMonthExpenses, loading } = useTransactions();
 
   const savingsTarget = 1000; // You could make this configurable
   const savings = monthlyIncome - monthlyExpenses;
   const savingsProgress = Math.max(0, Math.min(100, (savings / savingsTarget) * 100));
+
+  // Calculate actual trends
+  const calculateTrend = (current: number, previous: number) => {
+    if (previous === 0 && current === 0) {
+      return undefined; // No trend when both are zero
+    }
+    if (previous === 0) {
+      return { value: "New", isPositive: true, label: "this month" };
+    }
+    const change = ((current - previous) / previous) * 100;
+    const isPositive = change > 0;
+    return {
+      value: `${isPositive ? '+' : ''}${change.toFixed(1)}%`,
+      isPositive,
+      label: "from last month"
+    };
+  };
+
+  const balanceTrend = calculateTrend(totalBalance, (previousMonthIncome - previousMonthExpenses));
+  const incomeTrend = calculateTrend(monthlyIncome, previousMonthIncome);
+  const expensesTrend = calculateTrend(monthlyExpenses, previousMonthExpenses);
 
   if (loading) {
     return (
@@ -33,10 +54,6 @@ export default function Dashboard() {
     );
   }
 
-  const balanceTrend = monthlyIncome > monthlyExpenses 
-    ? { value: "+12.5%", isPositive: true, label: "from last month" }
-    : { value: "-5.2%", isPositive: false, label: "from last month" };
-
   return (
     <div className="space-y-6" data-testid="dashboard">
       {/* Quick Stats Cards */}
@@ -52,12 +69,14 @@ export default function Dashboard() {
           title="This Month Income"
           value={`₨${monthlyIncome.toFixed(2)}`}
           icon={<i className="fas fa-arrow-down text-secondary"></i>}
+          trend={incomeTrend}
         />
         
         <StatCard
           title="This Month Expenses"
           value={`₨${monthlyExpenses.toFixed(2)}`}
           icon={<i className="fas fa-arrow-up text-destructive"></i>}
+          trend={expensesTrend}
         />
         
         <StatCard

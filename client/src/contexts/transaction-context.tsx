@@ -11,6 +11,8 @@ interface TransactionContextType {
   totalBalance: number;
   monthlyIncome: number;
   monthlyExpenses: number;
+  previousMonthIncome: number;
+  previousMonthExpenses: number;
   recentTransactions: Transaction[];
   monthlyTransactions: Transaction[];
   refresh: () => void;
@@ -87,11 +89,27 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     t.date.startsWith(currentMonth)
   );
 
+  // Previous month calculations
+  const previousMonth = new Date();
+  previousMonth.setMonth(previousMonth.getMonth() - 1);
+  const previousMonthStr = previousMonth.toISOString().slice(0, 7); // YYYY-MM
+  const previousMonthTransactions = transactions.filter(t => 
+    t.date.startsWith(previousMonthStr)
+  );
+
   const monthlyIncome = monthlyTransactions
     .filter(t => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const monthlyExpenses = monthlyTransactions
+    .filter(t => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const previousMonthIncome = previousMonthTransactions
+    .filter(t => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const previousMonthExpenses = previousMonthTransactions
     .filter(t => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -106,6 +124,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     totalBalance,
     monthlyIncome,
     monthlyExpenses,
+    previousMonthIncome,
+    previousMonthExpenses,
     recentTransactions,
     monthlyTransactions,
     refresh: loadTransactions,
