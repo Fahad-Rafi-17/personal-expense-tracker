@@ -18,28 +18,43 @@ export class SupabaseStorage {
   }
 
   async addTransaction(data: InsertTransaction): Promise<Transaction> {
-    const transaction: DatabaseTransaction = {
-      id: randomUUID(),
-      type: data.type,
-      amount: data.amount,
-      category: data.category,
-      description: data.description || '',
-      date: data.date,
-      created_at: new Date().toISOString(),
-    };
+    try {
+      console.log("=== SUPABASE ADD TRANSACTION ===");
+      console.log("Input data:", data);
+      
+      const transaction: DatabaseTransaction = {
+        id: randomUUID(),
+        type: data.type,
+        amount: data.amount,
+        category: data.category,
+        description: data.description || '',
+        date: data.date,
+        created_at: new Date().toISOString(),
+      };
 
-    const { data: insertedData, error } = await supabase
-      .from(TRANSACTIONS_TABLE)
-      .insert(transaction)
-      .select()
-      .single();
+      console.log("Transaction to insert:", transaction);
 
-    if (error) {
-      console.error('Error adding transaction:', error);
-      throw new Error(`Failed to add transaction: ${error.message}`);
+      const { data: insertedData, error } = await supabase
+        .from(TRANSACTIONS_TABLE)
+        .insert(transaction)
+        .select()
+        .single();
+
+      console.log("Supabase response - data:", insertedData);
+      console.log("Supabase response - error:", error);
+
+      if (error) {
+        console.error('Error adding transaction:', error);
+        throw new Error(`Failed to add transaction: ${error.message}`);
+      }
+
+      const result = this.mapDatabaseToTransaction(insertedData);
+      console.log("Final mapped result:", result);
+      return result;
+    } catch (error) {
+      console.error("Error in addTransaction:", error);
+      throw error;
     }
-
-    return this.mapDatabaseToTransaction(insertedData);
   }
 
   async updateTransaction(id: string, data: Partial<InsertTransaction>): Promise<Transaction | null> {

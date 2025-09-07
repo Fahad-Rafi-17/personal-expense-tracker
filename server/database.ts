@@ -1,14 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import { config } from 'dotenv'
 
-// For development, load dotenv
+// Load environment variables from .env file in development
 if (process.env.NODE_ENV !== 'production') {
-  try {
-    // Use require for dotenv in development
-    const dotenv = require('dotenv')
-    dotenv.config()
-  } catch {
-    // In production (Vercel), environment variables are already available
-  }
+  config()
 }
 
 // Supabase configuration with debugging
