@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { get, handleApiResponse } from "@/lib/api";
+import { Transaction } from "@shared/schema";
 
 interface BankStatementEntry {
   date: string;
@@ -20,10 +22,8 @@ export function BankStatement() {
 
   const fetchStatements = async () => {
     try {
-      const response = await fetch('/api/transactions');
-      if (!response.ok) throw new Error('Failed to fetch transactions');
-      
-      const transactions = await response.json();
+      const response = await get('/api/transactions');
+      const transactions = await handleApiResponse<Transaction[]>(response);
       
       // Convert to bank statement format
       const sortedTransactions = [...transactions].sort((a, b) => 
@@ -62,7 +62,12 @@ export function BankStatement() {
 
   const downloadCSV = async () => {
     try {
-      const response = await fetch('/api/transactions/download/csv');
+      const response = await get('/api/transactions/download/csv', {
+        headers: {
+          'Content-Type': 'text/csv'
+        }
+      });
+      
       if (!response.ok) throw new Error('Failed to download CSV');
       
       const blob = await response.blob();

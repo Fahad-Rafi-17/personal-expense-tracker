@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { Loan, InsertLoan, LoanPayment, InsertLoanPayment } from "@shared/schema";
+import { get, post, put, del, handleApiResponse } from "@/lib/api";
 
 interface LoanContextType {
   loans: Loan[];
@@ -32,11 +33,8 @@ export function LoanProvider({ children }: { children: ReactNode }) {
   const loadLoans = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/loans");
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const response = await get("/api/loans");
+      const data = await handleApiResponse<Loan[]>(response);
       setLoans(data);
     } catch (error) {
       console.error("Failed to load loans:", error);
@@ -51,18 +49,8 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const addLoan = useCallback(async (data: InsertLoan): Promise<Loan> => {
     try {
-      const response = await fetch("/api/loans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || "Failed to add loan");
-      }
-
-      const newLoan = await response.json();
+      const response = await post("/api/loans", data);
+      const newLoan = await handleApiResponse<Loan>(response);
       setLoans(prev => [newLoan, ...prev]);
       return newLoan;
     } catch (error) {
@@ -73,18 +61,11 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const updateLoan = useCallback(async (id: string, data: Partial<InsertLoan>): Promise<Loan | null> => {
     try {
-      const response = await fetch(`/api/loans/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) return null;
-        throw new Error("Failed to update loan");
-      }
-
-      const updated = await response.json();
+      const response = await put(`/api/loans/${id}`, data);
+      
+      if (response.status === 404) return null;
+      
+      const updated = await handleApiResponse<Loan>(response);
       setLoans(prev => prev.map(loan => loan.id === id ? updated : loan));
       return updated;
     } catch (error) {
@@ -95,15 +76,11 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const deleteLoan = useCallback(async (id: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/loans/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) return false;
-        throw new Error("Failed to delete loan");
-      }
-
+      const response = await del(`/api/loans/${id}`);
+      
+      if (response.status === 404) return false;
+      
+      await handleApiResponse(response);
       setLoans(prev => prev.filter(loan => loan.id !== id));
       return true;
     } catch (error) {
@@ -122,11 +99,8 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const getLoanPayments = useCallback(async (loanId: string): Promise<LoanPayment[]> => {
     try {
-      const response = await fetch(`/api/loans/${loanId}/payments`);
-      if (!response.ok) {
-        throw new Error("Failed to get loan payments");
-      }
-      return await response.json();
+      const response = await get(`/api/loans/${loanId}/payments`);
+      return await handleApiResponse<LoanPayment[]>(response);
     } catch (error) {
       console.error("Failed to get loan payments:", error);
       throw error;
@@ -135,18 +109,8 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const addLoanPayment = useCallback(async (data: InsertLoanPayment): Promise<LoanPayment> => {
     try {
-      const response = await fetch(`/api/loans/${data.loanId}/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || "Failed to add payment");
-      }
-
-      const payment = await response.json();
+      const response = await post(`/api/loans/${data.loanId}/payments`, data);
+      const payment = await handleApiResponse<LoanPayment>(response);
       
       // Refresh loans to update remaining amounts
       await loadLoans();
@@ -160,15 +124,12 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const deleteLoanPayment = useCallback(async (paymentId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/loans/payments/${paymentId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) return false;
-        throw new Error("Failed to delete payment");
-      }
-
+      const response = await del(`/api/loans/payments/${paymentId}`);
+      
+      if (response.status === 404) return false;
+      
+      await handleApiResponse(response);
+      
       // Refresh loans to update remaining amounts
       await loadLoans();
       
@@ -181,11 +142,15 @@ export function LoanProvider({ children }: { children: ReactNode }) {
 
   const getLoanSummary = useCallback(async () => {
     try {
-      const response = await fetch("/api/loans/summary");
-      if (!response.ok) {
-        throw new Error("Failed to get loan summary");
-      }
-      return await response.json();
+      const response = await get("/api/loans/summary");
+      return await handleApiResponse<{
+        totalLoansGiven: number;
+        totalLoansTaken: number;
+        activeLoansGiven: number;
+        activeLoansTaken: number;
+        totalOutstanding: number;
+        totalOwed: number;
+      }>(response);
     } catch (error) {
       console.error("Failed to get loan summary:", error);
       throw error;
