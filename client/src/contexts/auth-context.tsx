@@ -43,23 +43,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
       
+      console.log('🔄 Checking authentication...');
+      
       // Check if session is valid locally first
       if (!isSessionValid()) {
+        console.log('🔄 Session invalid locally');
         setIsAuthenticated(false);
         return false;
       }
 
       const token = getDeviceToken();
+      console.log('🔄 Current token:', token ? token.substring(0, 20) + '...' : 'null');
+      
       if (!token) {
+        console.log('🔄 No token found');
         setIsAuthenticated(false);
         return false;
       }
 
       // Validate with server
+      console.log('🔄 Validating token with server...');
       const isValid = await validateDeviceToken(token);
+      console.log('🔄 Token validation result:', isValid);
       
       if (isValid) {
         const authStatus = getAuthStatus();
+        console.log('🔄 Auth status:', authStatus);
         setIsAuthenticated(true);
         setDeviceName(authStatus.deviceName);
         setLastVerified(authStatus.lastVerified);
@@ -67,6 +76,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return true;
       } else {
         // Token is invalid, clear auth data
+        console.log('🔄 Token invalid, clearing auth data');
         clearAuthData();
         setIsAuthenticated(false);
         setDeviceName(null);
@@ -74,7 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return false;
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error('🔄 Auth check failed:', error);
       setIsAuthenticated(false);
       return false;
     } finally {

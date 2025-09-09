@@ -242,7 +242,12 @@ export async function registerRoutes(app: Express): Promise<void> {
         supabaseUrlPrefix: process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 30) + "..." : "missing",
         storageType: "supabase",
         isVercel: !!process.env.VERCEL_ENV,
-        availableSupabaseVars: Object.keys(process.env).filter(key => key.includes('SUPABASE'))
+        availableSupabaseVars: Object.keys(process.env).filter(key => key.includes('SUPABASE')),
+        // Auth debugging
+        hasMasterPassword: !!process.env.EXPENSE_TRACKER_MASTER_PASSWORD,
+        hasDeviceTokens: !!process.env.EXPENSE_TRACKER_DEVICE_TOKENS,
+        hasRegisteredDevices: !!process.env.EXPENSE_TRACKER_REGISTERED_DEVICES,
+        authEnvVars: Object.keys(process.env).filter(key => key.includes('EXPENSE_TRACKER'))
       });
     } catch (error) {
       res.status(500).json({

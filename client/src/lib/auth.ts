@@ -161,6 +161,8 @@ export function clearAuthData(): void {
  */
 export async function validateDeviceToken(token: string): Promise<boolean> {
   try {
+    console.log('🔍 Validating token:', token.substring(0, 20) + '...');
+    
     const response = await fetch('/api/auth/validate-device', {
       method: 'POST',
       headers: {
@@ -173,10 +175,13 @@ export async function validateDeviceToken(token: string): Promise<boolean> {
       })
     });
     
+    console.log('🔍 Validation response status:', response.status);
     const result = await response.json();
+    console.log('🔍 Validation result:', result);
+    
     return response.ok && result.valid === true;
   } catch (error) {
-    console.error('Token validation failed:', error);
+    console.error('🔍 Token validation failed:', error);
     return false;
   }
 }
@@ -188,6 +193,8 @@ export async function authenticateWithPassword(password: string): Promise<{ succ
   try {
     const deviceId = generateDeviceFingerprint();
     const deviceName = getDeviceName();
+    
+    console.log('🔐 Attempting authentication...', { deviceId, deviceName });
     
     const response = await fetch('/api/auth/master-password', {
       method: 'POST',
@@ -201,19 +208,23 @@ export async function authenticateWithPassword(password: string): Promise<{ succ
       })
     });
     
+    console.log('🔐 Auth response status:', response.status);
     const result = await response.json();
+    console.log('🔐 Auth response data:', result);
     
     if (response.ok && result.success) {
       // Store the new device token
       if (result.token) {
+        console.log('🔐 Storing device token:', result.token.substring(0, 20) + '...');
         storeDeviceToken(result.token);
       }
       return { success: true, token: result.token };
     } else {
+      console.log('🔐 Auth failed:', result.error);
       return { success: false, error: result.error || 'Authentication failed' };
     }
   } catch (error) {
-    console.error('Password authentication failed:', error);
+    console.error('🔐 Password authentication failed:', error);
     return { success: false, error: 'Network error occurred' };
   }
 }
