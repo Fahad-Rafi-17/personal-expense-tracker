@@ -3,8 +3,148 @@ import path from "path";
 import { storage } from "./storage.js";
 import { loanStorage } from "./loan-storage.js";
 import { insertTransactionSchema, insertLoanSchema, insertLoanPaymentSchema } from "../shared/schema.js";
+import {
+  validateDeviceToken,
+  verifyMasterPassword,
+  generateDeviceToken,
+  addDeviceToken,
+  updateDeviceLastSeen,
+  getRegisteredDevices,
+  revokeDevice,
+  cleanupOldDevices
+} from "./auth.js";
 
 export async function registerRoutes(app: Express): Promise<void> {
+  // Authentication middleware for protected routes
+  const requireAuth = (req: any, res: any, next: any) => {
+    // Skip auth for auth routes and health check
+    if (req.path.startsWith('/api/auth') || req.path === '/api/health' || req.path === '/debug') {
+      return next();
+    }
+
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+      return res.status(401).json({ error: 'No authentication token provided' });
+    }
+
+    if (!validateDeviceToken(token)) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    // Update last seen for the device if we have device info
+    const deviceId = req.headers['x-device-id'];
+    if (deviceId) {
+      updateDeviceLastSeen(deviceId as string);
+    }
+
+    next();
+  };
+
+  // Apply auth middleware to all API routes except auth routes
+  app.use('/api', requireAuth);
+
+  // ============== AUTHENTICATION ROUTES ==============
+
+  // Validate device token
+  app.post("/api/auth/validate-device", (req, res) => {
+    try {
+      const { token, deviceId } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ valid: false, error: 'Token is required' });
+      }
+
+      const isValid = validateDeviceToken(token);
+      
+      if (isValid && deviceId) {
+        updateDeviceLastSeen(deviceId);
+      }
+
+      res.json({ valid: isValid });
+    } catch (error) {
+      console.error('Token validation error:', error);
+      res.status(500).json({ valid: false, error: 'Validation failed' });
+    }
+  });
+
+  // Master password authentication
+  app.post("/api/auth/master-password", (req, res) => {
+    try {
+      const { password, deviceId, deviceName } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ success: false, error: 'Password is required' });
+      }
+
+      if (!deviceId || !deviceName) {
+        return res.status(400).json({ success: false, error: 'Device information is required' });
+      }
+
+      const isValidPassword = verifyMasterPassword(password);
+      
+      if (!isValidPassword) {
+        return res.status(401).json({ success: false, error: 'Invalid master password' });
+      }
+
+      // Generate new device token
+      const token = generateDeviceToken();
+      
+      // Add device to approved list
+      const userAgent = req.headers['user-agent'] || 'Unknown';
+      addDeviceToken(token, deviceId, deviceName, userAgent);
+
+      res.json({ success: true, token });
+    } catch (error) {
+      console.error('Master password authentication error:', error);
+      res.status(500).json({ success: false, error: 'Authentication failed' });
+    }
+  });
+
+  // Get registered devices
+  app.get("/api/auth/devices", (req, res) => {
+    try {
+      // Clean up old devices before returning the list
+      cleanupOldDevices();
+      
+      const devices = getRegisteredDevices();
+      const deviceList = devices.map(device => ({
+        id: device.id,
+        name: device.name,
+        lastSeen: device.lastSeen,
+        isCurrentDevice: false, // Will be determined on client side
+        userAgent: device.userAgent
+      }));
+
+      res.json({ devices: deviceList });
+    } catch (error) {
+      console.error('Failed to get devices:', error);
+      res.status(500).json({ error: 'Failed to retrieve devices' });
+    }
+  });
+
+  // Revoke device access
+  app.post("/api/auth/revoke-device", (req, res) => {
+    try {
+      const { deviceId } = req.body;
+
+      if (!deviceId) {
+        return res.status(400).json({ success: false, error: 'Device ID is required' });
+      }
+
+      const success = revokeDevice(deviceId);
+      
+      if (!success) {
+        return res.status(404).json({ success: false, error: 'Device not found' });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Failed to revoke device:', error);
+      res.status(500).json({ success: false, error: 'Failed to revoke device' });
+    }
+  });
   // Debug page for API testing
   app.get("/debug", (req, res) => {
     const debugHtml = `

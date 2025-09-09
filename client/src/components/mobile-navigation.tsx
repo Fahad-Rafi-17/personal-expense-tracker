@@ -8,7 +8,7 @@ export function MobileNavigation() {
     { path: "/analytics", icon: "fas fa-chart-bar", label: "Analytics" },
     { path: "/transactions", icon: "fas fa-list", label: "Transactions" },
     { path: "/loans", icon: "fas fa-handshake", label: "Loans" },
-    { path: "/bank-statement", icon: "fas fa-file-csv", label: "Statement" },
+    { path: "/settings", icon: "fas fa-cog", label: "Settings" },
   ];
 
   return (
