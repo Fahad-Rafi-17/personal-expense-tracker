@@ -17,11 +17,6 @@ import {
 export async function registerRoutes(app: Express): Promise<void> {
   // Authentication middleware for protected routes
   const requireAuth = (req: any, res: any, next: any) => {
-    // Skip auth for auth routes and health check
-    if (req.path.startsWith('/api/auth') || req.path === '/api/health' || req.path === '/debug') {
-      return next();
-    }
-
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -43,7 +38,10 @@ export async function registerRoutes(app: Express): Promise<void> {
   };
 
   // Apply auth middleware to all API routes except auth routes
-  app.use('/api', requireAuth);
+  // Note: We need to be more specific to avoid catching auth routes
+  app.use('/api/transactions', requireAuth);
+  app.use('/api/loans', requireAuth);
+  app.use('/api/balance', requireAuth);
 
   // ============== AUTHENTICATION ROUTES ==============
 
