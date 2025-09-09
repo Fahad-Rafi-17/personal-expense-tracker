@@ -23,11 +23,18 @@ export class LoanStorage {
       console.log("=== LOAN STORAGE ADD LOAN ===");
       console.log("Input data:", data);
       
+      // Fix: For new loans, remainingAmount should default to the full amount if not properly set
+      const remainingAmount = data.remainingAmount !== undefined && data.remainingAmount > 0 
+        ? data.remainingAmount 
+        : data.amount;
+      
+      console.log("Calculated remaining amount:", remainingAmount);
+      
       const loan: DatabaseLoan = {
         id: randomUUID(),
         type: data.type,
         amount: data.amount,
-        remaining_amount: data.remainingAmount,
+        remaining_amount: remainingAmount,
         person_name: data.personName,
         person_contact: data.personContact || '',
         description: data.description || '',

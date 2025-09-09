@@ -11,11 +11,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loan, InsertLoan, LOAN_STATUS_COLORS, LOAN_STATUS_LABELS } from "@shared/schema";
+import { Loan, InsertLoan, LoanPayment, InsertLoanPayment, LOAN_STATUS_COLORS, LOAN_STATUS_LABELS } from "@shared/schema";
 import { format } from "date-fns";
 
 export default function LoansPage() {
-  const { loans, loading, addLoan, deleteLoan, getLoanSummary } = useLoans();
+  const { 
+    loans, 
+    loading, 
+    addLoan, 
+    deleteLoan, 
+    getLoanSummary,
+    getLoanPayments,
+    addLoanPayment,
+    deleteLoanPayment 
+  } = useLoans();
   const { toast } = useToast();
   const [summary, setSummary] = useState({
     totalLoansGiven: 0,
@@ -29,14 +38,21 @@ export default function LoansPage() {
   const [formData, setFormData] = useState<Partial<InsertLoan>>({
     type: "given",
     amount: 0,
-    remainingAmount: 0,
+    remainingAmount: 0, // Will be set to match amount when amount is entered
     personName: "",
     personContact: "",
     description: "",
-    interestRate: 0,
     dueDate: "",
     status: "active",
   });
+
+  // Payment tracking states
+  const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+  const [isViewingPayments, setIsViewingPayments] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [loanPayments, setLoanPayments] = useState<LoanPayment[]>([]);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
 
   useEffect(() => {
     const loadSummary = async () => {
@@ -66,11 +82,11 @@ export default function LoansPage() {
       const loanData: InsertLoan = {
         type: formData.type as "given" | "taken",
         amount: Number(formData.amount),
-        remainingAmount: Number(formData.remainingAmount || formData.amount),
+        remainingAmount: Number(formData.amount), // Set remaining amount equal to amount initially
         personName: formData.personName!,
         personContact: formData.personContact || "",
         description: formData.description || "",
-        interestRate: Number(formData.interestRate || 0),
+        interestRate: 0, // No interest rate functionality
         dueDate: formData.dueDate || undefined,
         status: formData.status as "active" | "completed" | "defaulted",
       };
@@ -86,11 +102,10 @@ export default function LoansPage() {
       setFormData({
         type: "given",
         amount: 0,
-        remainingAmount: 0,
+        remainingAmount: 0, // Will be set to match amount when amount is entered
         personName: "",
         personContact: "",
         description: "",
-        interestRate: 0,
         dueDate: "",
         status: "active",
       });
@@ -118,6 +133,92 @@ export default function LoansPage() {
           variant: "destructive",
         });
       }
+    }
+  };
+
+  // Payment handling functions
+  const handleRecordPayment = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setPaymentAmount('');
+    setPaymentNotes('');
+    setIsRecordingPayment(true);
+  };
+
+  const handleViewPayments = async (loan: Loan) => {
+    try {
+      setSelectedLoan(loan);
+      const payments = await getLoanPayments(loan.id);
+      setLoanPayments(payments);
+      setIsViewingPayments(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load payments",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddPayment = async () => {
+    if (!selectedLoan || !paymentAmount || parseFloat(paymentAmount) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid payment amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const paymentData: InsertLoanPayment = {
+        loanId: selectedLoan.id,
+        type: "payment",
+        amount: Number(paymentAmount),
+        description: paymentNotes || "",
+        paymentDate: new Date().toISOString().split('T')[0],
+      };
+
+      await addLoanPayment(paymentData);
+      
+      toast({
+        title: "Success",
+        description: "Payment recorded successfully",
+      });
+
+      setIsRecordingPayment(false);
+      setPaymentAmount('');
+      setPaymentNotes('');
+      setSelectedLoan(null);
+    } catch (error) {
+      console.error('Error adding payment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    try {
+      await deleteLoanPayment(paymentId);
+      
+      toast({
+        title: "Success",
+        description: "Payment deleted successfully",
+      });
+
+      // Refresh the payments list
+      if (selectedLoan) {
+        const payments = await getLoanPayments(selectedLoan.id);
+        setLoanPayments(payments);
+      }
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to delete payment",
+        variant: "destructive",
+      });
     }
   };
 
@@ -231,26 +332,14 @@ export default function LoansPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="interestRate">Interest Rate (%)</Label>
-                  <Input
-                    id="interestRate"
-                    type="number"
-                    step="0.1"
-                    value={formData.interestRate || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, interestRate: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="dueDate">Due Date (Optional)</Label>
-                  <Input
-                    id="dueDate"
-                    type="date"
-                    value={formData.dueDate || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-                  />
-                </div>
+              <div>
+                <Label htmlFor="dueDate">Due Date (Optional)</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={formData.dueDate || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                />
               </div>
 
               <div>
@@ -358,7 +447,6 @@ export default function LoansPage() {
                       <TableHead>Person</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Remaining</TableHead>
-                      <TableHead>Interest</TableHead>
                       <TableHead>Due Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -379,20 +467,39 @@ export default function LoansPage() {
                         <TableCell className="font-medium">
                           {formatCurrency(loan.remainingAmount)}
                         </TableCell>
-                        <TableCell>{loan.interestRate}%</TableCell>
                         <TableCell>
                           {loan.dueDate ? format(new Date(loan.dueDate), "MMM dd, yyyy") : "-"}
                         </TableCell>
                         <TableCell>{getStatusBadge(loan.status)}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteLoan(loan.id, loan.personName)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </Button>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRecordPayment(loan)}
+                              className="text-green-600 hover:text-green-700"
+                              title="Record Payment"
+                            >
+                              <i className="fas fa-plus"></i>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewPayments(loan)}
+                              className="text-blue-600 hover:text-blue-700"
+                              title="View Payments"
+                            >
+                              <i className="fas fa-list"></i>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteLoan(loan.id, loan.personName)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <i className="fas fa-trash"></i>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -428,7 +535,6 @@ export default function LoansPage() {
                       <TableHead>Lender</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Remaining</TableHead>
-                      <TableHead>Interest</TableHead>
                       <TableHead>Due Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -449,20 +555,39 @@ export default function LoansPage() {
                         <TableCell className="font-medium">
                           {formatCurrency(loan.remainingAmount)}
                         </TableCell>
-                        <TableCell>{loan.interestRate}%</TableCell>
                         <TableCell>
                           {loan.dueDate ? format(new Date(loan.dueDate), "MMM dd, yyyy") : "-"}
                         </TableCell>
                         <TableCell>{getStatusBadge(loan.status)}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteLoan(loan.id, loan.personName)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <i className="fas fa-trash"></i>
-                          </Button>
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRecordPayment(loan)}
+                              className="text-green-600 hover:text-green-700"
+                              title="Record Payment"
+                            >
+                              <i className="fas fa-plus"></i>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewPayments(loan)}
+                              className="text-blue-600 hover:text-blue-700"
+                              title="View Payments"
+                            >
+                              <i className="fas fa-list"></i>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteLoan(loan.id, loan.personName)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <i className="fas fa-trash"></i>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -473,6 +598,117 @@ export default function LoansPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={isRecordingPayment} onOpenChange={setIsRecordingPayment}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+          </DialogHeader>
+          {selectedLoan && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p>Recording payment for loan to/from <strong>{selectedLoan.personName}</strong></p>
+                <p>Remaining amount: <strong>{formatCurrency(selectedLoan.remainingAmount)}</strong></p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Payment Amount</label>
+                <input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Enter payment amount"
+                  className="w-full px-3 py-2 border rounded-md"
+                  step="0.01"
+                  min="0"
+                  max={selectedLoan.remainingAmount}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Notes (optional)</label>
+                <textarea
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  placeholder="Add any notes about this payment"
+                  className="w-full px-3 py-2 border rounded-md"
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={() => setIsRecordingPayment(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleAddPayment}
+                  disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
+                >
+                  Record Payment
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Payments Dialog */}
+      <Dialog open={isViewingPayments} onOpenChange={setIsViewingPayments}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Payment History</DialogTitle>
+          </DialogHeader>
+          {selectedLoan && (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p>Payment history for loan to/from <strong>{selectedLoan.personName}</strong></p>
+                <p>Original amount: <strong>{formatCurrency(selectedLoan.amount)}</strong></p>
+                <p>Remaining amount: <strong>{formatCurrency(selectedLoan.remainingAmount)}</strong></p>
+              </div>
+              
+              {loanPayments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <i className="fas fa-receipt text-4xl mb-4 opacity-50"></i>
+                  <p>No payments recorded yet</p>
+                  <p className="text-sm">Record payments to track loan progress</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loanPayments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>
+                          {format(new Date(payment.paymentDate), "MMM dd, yyyy")}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(payment.amount)}
+                        </TableCell>
+                        <TableCell>{payment.description || "-"}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletePayment(payment.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <i className="fas fa-trash"></i>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

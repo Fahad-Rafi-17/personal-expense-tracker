@@ -16,25 +16,47 @@ import {
 
 export async function registerRoutes(app: Express): Promise<void> {
   // Authentication middleware for protected routes
-  const requireAuth = (req: any, res: any, next: any) => {
+  const requireAuth = async (req: any, res: any, next: any) => {
+    console.log('🔒 [Auth Middleware] Request:', {
+      method: req.method,
+      path: req.path,
+      hasAuthHeader: !!req.headers.authorization,
+      authHeaderPrefix: req.headers.authorization?.substring(0, 20) + '...',
+      deviceId: req.headers['x-device-id']
+    });
+
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
     if (!token) {
+      console.log('🔒 [Auth Middleware] No token provided');
       return res.status(401).json({ error: 'No authentication token provided' });
     }
 
-    if (!validateDeviceToken(token)) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
+    console.log('🔒 [Auth Middleware] Token received:', token.substring(0, 20) + '...');
 
-    // Update last seen for the device if we have device info
-    const deviceId = req.headers['x-device-id'];
-    if (deviceId) {
-      updateDeviceLastSeen(deviceId as string);
-    }
+    try {
+      const isValidToken = await validateDeviceToken(token);
+      console.log('🔒 [Auth Middleware] Token validation result:', isValidToken);
 
-    next();
+      if (!isValidToken) {
+        console.log('🔒 [Auth Middleware] Token validation failed');
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+
+      console.log('🔒 [Auth Middleware] Token valid, proceeding...');
+
+      // Update last seen for the device if we have device info
+      const deviceId = req.headers['x-device-id'];
+      if (deviceId) {
+        await updateDeviceLastSeen(deviceId as string);
+      }
+
+      next();
+    } catch (error) {
+      console.error('🔒 [Auth Middleware] Error during authentication:', error);
+      return res.status(500).json({ error: 'Authentication error' });
+    }
   };
 
   // Apply auth middleware to all API routes except auth routes
@@ -46,31 +68,44 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ============== AUTHENTICATION ROUTES ==============
 
   // Validate device token
-  app.post("/api/auth/validate-device", (req, res) => {
+  app.post("/api/auth/validate-device", async (req, res) => {
     try {
       const { token, deviceId } = req.body;
+
+      console.log('🔍 [Token Validation] Request:', { 
+        tokenPrefix: token?.substring(0, 20) + '...', 
+        deviceId,
+        hasToken: !!token 
+      });
 
       if (!token) {
         return res.status(400).json({ valid: false, error: 'Token is required' });
       }
 
-      const isValid = validateDeviceToken(token);
+      const isValid = await validateDeviceToken(token);
+      console.log('🔍 [Token Validation] Result:', isValid);
       
       if (isValid && deviceId) {
-        updateDeviceLastSeen(deviceId);
+        await updateDeviceLastSeen(deviceId);
       }
 
       res.json({ valid: isValid });
     } catch (error) {
-      console.error('Token validation error:', error);
+      console.error('🔍 [Token Validation] Error:', error);
       res.status(500).json({ valid: false, error: 'Validation failed' });
     }
   });
 
   // Master password authentication
-  app.post("/api/auth/master-password", (req, res) => {
+  app.post("/api/auth/master-password", async (req, res) => {
     try {
       const { password, deviceId, deviceName } = req.body;
+
+      console.log('🔐 [Master Password] Request:', { 
+        hasPassword: !!password, 
+        deviceId, 
+        deviceName 
+      });
 
       if (!password) {
         return res.status(400).json({ success: false, error: 'Password is required' });
@@ -81,6 +116,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
 
       const isValidPassword = verifyMasterPassword(password);
+      console.log('🔐 [Master Password] Password valid:', isValidPassword);
       
       if (!isValidPassword) {
         return res.status(401).json({ success: false, error: 'Invalid master password' });
@@ -88,25 +124,28 @@ export async function registerRoutes(app: Express): Promise<void> {
 
       // Generate new device token
       const token = generateDeviceToken();
+      console.log('🔐 [Master Password] Generated token:', token.substring(0, 20) + '...');
       
       // Add device to approved list
       const userAgent = req.headers['user-agent'] || 'Unknown';
-      addDeviceToken(token, deviceId, deviceName, userAgent);
+      await addDeviceToken(token, deviceId, deviceName, userAgent);
+
+      console.log('🔐 [Master Password] Token stored successfully');
 
       res.json({ success: true, token });
     } catch (error) {
-      console.error('Master password authentication error:', error);
+      console.error('🔐 [Master Password] Error:', error);
       res.status(500).json({ success: false, error: 'Authentication failed' });
     }
   });
 
   // Get registered devices
-  app.get("/api/auth/devices", (req, res) => {
+  app.get("/api/auth/devices", async (req, res) => {
     try {
       // Clean up old devices before returning the list
-      cleanupOldDevices();
+      await cleanupOldDevices();
       
-      const devices = getRegisteredDevices();
+      const devices = await getRegisteredDevices();
       const deviceList = devices.map(device => ({
         id: device.id,
         name: device.name,
@@ -123,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Revoke device access
-  app.post("/api/auth/revoke-device", (req, res) => {
+  app.post("/api/auth/revoke-device", async (req, res) => {
     try {
       const { deviceId } = req.body;
 
@@ -131,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         return res.status(400).json({ success: false, error: 'Device ID is required' });
       }
 
-      const success = revokeDevice(deviceId);
+      const success = await revokeDevice(deviceId);
       
       if (!success) {
         return res.status(404).json({ success: false, error: 'Device not found' });
